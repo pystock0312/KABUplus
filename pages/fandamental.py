@@ -111,49 +111,62 @@ def merge_multiple_dataframes(*dataframes, key):
         suffix_num += 1
     return merged_df
 
+
+def get_high_dividend_list(codes):
+    # プログレスバーの初期化
+    progress_bar = st.progress(0)
+
+    # データの取得
+    df = IRBANK_data()
+    st.df_bank = df
+    progress_bar.progress(10)
+
+    # 売上高の処理
+    df_revenue = normalize_and_calculate_slope(df, codes, "売上高", 10)
+    st.revenue_lists = df_revenue['コード'].tolist()
+    progress_bar.progress(30)
+
+    # EPSの処理
+    df_eps = normalize_and_calculate_slope(df, codes, "EPS", 10)
+    st.eps_lists = df_eps['コード'].tolist()
+    progress_bar.progress(50)
+
+    # 一株配当の処理
+    df_dps = normalize_and_calculate_slope(df, codes, "一株配当", 10)
+    st.dps_lists = df_dps['コード'].tolist()
+    progress_bar.progress(70)
+
+    # 営業CFの処理
+    df_scf = normalize_and_calculate_slope(df, codes, "営業CF", 10)
+    st.scf_lists = df_scf['コード'].tolist()
+    progress_bar.progress(90)
+
+    # 営業利益率の処理
+    df_opm = normalize_and_calculate_slope(df, codes, "営業利益率", 10)
+    st.opm_lists = df_opm['コード'].tolist()
+
+    # データフレームの結合
+    df_merged = merge_multiple_dataframes(df_revenue, df_eps, df_dps, df_scf, df_opm, key='コード')
+    df_merged["最終ランク"] = df_merged["ランク_売上高"] + df_merged["ランク_EPS"] + df_merged["ランク_一株配当"] + df_merged["ランク_営業CF"] + df_merged["ランク_営業利益率"]
+    df_result = df_merged[["コード", "銘柄名", "最終ランク", "ランク_売上高", "ランク_EPS", "ランク_一株配当", "ランク_営業CF", "ランク_営業利益率"]]
+    st.result_lists = df_result['コード'].tolist()
+
+    # データフレームの表示
+    st.dataframe(df_merged)
+    st.dataframe(df_result)
+    st.dataframe(df_revenue)
+    st.dataframe(df_eps)
+    st.dataframe(df_dps)
+    st.dataframe(df_scf)
+    st.dataframe(df_opm)
+
+    progress_bar.progress(100)
+
+
 if __name__ == '__main__':
     st.text("売上高、EPS、一株配当、営業CF、営業利益率の傾きをスコア付け")
     # 別のページでその値を取得
     codes = st.column_values_list
-    # st.title(codes)
-    df = IRBANK_data()
-    st.df_bank = df
 
-    df_revenue = normalize_and_calculate_slope(df, codes, "売上高",10)
-    # 一つのページでセッションステートに値を設定
-    st.revenue_lists = df_revenue['コード'].tolist()
-
-    df_eps = normalize_and_calculate_slope(df, codes, "EPS",10)
-    st.eps_lists = df_eps['コード'].tolist()
-
-    df_dps = normalize_and_calculate_slope(df, codes, "一株配当",10)
-    st.dps_lists = df_dps['コード'].tolist()
-
-    df_scf = normalize_and_calculate_slope(df, codes, "営業CF",10)
-    st.scf_lists = df_scf['コード'].tolist()
-
-    df_opm = normalize_and_calculate_slope(df, codes, "営業利益率",10)
-    st.opm_lists = df_opm['コード'].tolist()
-
-    # データフレームの結合
-    df_merged = merge_multiple_dataframes(df_revenue, df_eps, df_dps, df_scf,df_opm,
-                                          key='コード')
-
-    # df_merged = pd.merge(pd.merge(pd.merge(df_revenue, df_eps, on='コード', how='inner'), df_dps, on='コード', how='inner'), df_scf, on='コード', how='inner')
-    df_merged["最終ランク"] = df_merged["ランク_売上高"] + df_merged["ランク_EPS"] + df_merged["ランク_一株配当"] + df_merged["ランク_営業CF"] + df_merged["ランク_営業利益率"]
-
-    df_result = df_merged[["コード","銘柄名","最終ランク","ランク_売上高","ランク_EPS","ランク_一株配当","ランク_営業CF","ランク_営業利益率"]]
-
-    # 結合されたデータフレームの表示
-    st.dataframe(df_merged)
-    st.dataframe(df_result)
-    # データフレームの表示
-    st.dataframe(df_revenue)
-    # データフレームの表示
-    st.dataframe(df_eps)
-    # データフレームの表示
-    st.dataframe(df_dps)
-    # データフレームの表示
-    st.dataframe(df_scf)
-    # データフレームの表示
-    st.dataframe(df_opm)
+    if st.button('高配当リスト取得'):
+        get_high_dividend_list(codes)

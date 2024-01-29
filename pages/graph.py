@@ -99,6 +99,43 @@ def mk_graph_bar(df, target):
     return fig  # この行を追加
 
 
+
+def mk_graph_bars(df, targets):
+    # 棒グラフの作成
+    fig = go.Figure()
+    for target in targets:
+        df_target = remove_negative_dividend_rows(df, target)
+        df_target["年度"] = pd.to_datetime(df_target["年度"])
+        df_target["年度_str"] = df_target["年度"].astype(str)
+        df_target[target] = df_target[target].astype(float)
+        df_target = df_target.sort_values(by='年度')
+        df_target[f"{target}増加率"] = df_target[target].diff().fillna(0)
+        df_target[f"{target}維持or増加"] = df_target[f"{target}増加率"] >= 0
+
+        # データの準備
+        categories = df_target["年度_str"]
+        values = df_target[target]
+
+        # 棒グラフの作成
+        fig.add_trace(go.Bar(x=categories, y=values, name=target))
+
+    # X軸の設定
+    fig.update_xaxes(
+        tickmode='array',
+        tickvals=df_target['年度'],
+        ticktext=df_target['年度_str']
+    )
+
+    # グラフのタイトルと軸ラベルの設定
+    fig.update_layout(
+        title="各種キャッシュフローの比較",
+        xaxis_title="年度",
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    return fig
+
+
+
 def mk_graph_scatter(df, target):
     df = remove_negative_dividend_rows(df, target)
     df["年度"] = pd.to_datetime(df["年度"])
@@ -146,115 +183,122 @@ def mk_graph_scatter(df, target):
 # Streamlitアプリのメイン関数
 def main():
     st.title("財務データの可視化")
+    try:
+        fandamental_options = ["売上高","EPS","一株配当","営業CF","営業利益率"]
 
-    fandamental_options = ["売上高","EPS","一株配当","営業CF","営業利益率"]
+        selected_op = st.sidebar.radio("項目を選択して下さい",fandamental_options)
 
-    selected_op = st.sidebar.radio("項目を選択して下さい",fandamental_options)
-
-    # # ユーザーに検索コードの入力を求める
-    # ticker_symbol = st.text_input("検索コードを入力してください（例：9251）", "")
-
-    if selected_op == "売上高":
-        revenue_lists = st.revenue_lists
-        # ユーザーに検索コードの入力を求める
-        ticker_symbol = st.sidebar.selectbox("売上高リスト", revenue_lists)
-
-    if selected_op == "EPS":
-        esp_lists = st.eps_lists
-        # ユーザーに検索コードの入力を求める
-        ticker_symbol = st.sidebar.selectbox("EPSリスト", esp_lists)
-
-    if selected_op == "一株配当":
-        dps_lists = st.dps_lists
-        # ユーザーに検索コードの入力を求める
-        ticker_symbol = st.sidebar.selectbox("一株配当リスト", dps_lists)
-
-    if selected_op == "営業CF":
-        scf_lists = st.scf_lists
-        # ユーザーに検索コードの入力を求める
-        ticker_symbol = st.sidebar.selectbox("営業CF", scf_lists)
-
-    if selected_op == "営業利益率":
-        opm_lists = st.opm_lists
-        # ユーザーに検索コードの入力を求める
-        ticker_symbol = st.sidebar.selectbox("営業利益率", opm_lists)
-
-    # ユーザーが何か入力した場合のみ処理を進める
-    if ticker_symbol:
-        try:
-            # 入力されたコードを整数に変換
-            ticker_symbol = int(ticker_symbol)
-
-            # 以前のコードを実行
-            df_stock_dividend = pd.read_pickle("stock_dividend.pkl")
-            df_profit_and_loss = pd.read_pickle("profit_and_loss.pkl")
-            df_cash_flow_statement = pd.read_pickle("cash_flow_statement.pkl")
-            df_balance_sheet = pd.read_pickle("balance_sheet.pkl")
-
-            common_lists = ['日付', 'コード', '銘柄名', '市場・商品区分', '33業種コード', '33業種区分',
-                            '17業種コード', '17業種区分', '規模コード', '規模区分', '年度']
-
-            df_marged_stock_profit = pd.merge(df_stock_dividend,
-                                              df_profit_and_loss,
-                                              on=common_lists, how='inner')
-            df_marged_stock_profit_cash = pd.merge(df_marged_stock_profit,
-                                                   df_cash_flow_statement,
-                                                   on=common_lists, how='inner')
-            df_marged_stock_profit_cash_balance = pd.merge(
-                df_marged_stock_profit_cash,
-                df_balance_sheet,
-                on=common_lists, how='inner')
-
-            df = df_marged_stock_profit_cash_balance
-
-            df = df.replace('-', np.nan)
-            df["営業利益"] = pd.to_numeric(df["営業利益"], errors='coerce',
-                                       downcast='integer')
-            df["売上高"] = pd.to_numeric(df["売上高"], errors='coerce',
-                                      downcast='integer')
-            df["営業利益率"] = df["営業利益"] / df["売上高"] * 100
-            df_target = mk_df_target(df, ticker_symbol)
-            # st.dataframe(df_target)
-
-        except ValueError:
-            st.error("有効なコードを入力してください。")
-
-        # 各グラフの表示
-
+        # # ユーザーに検索コードの入力を求める
+        # ticker_symbol = st.text_input("検索コードを入力してください（例：9251）", "")
 
         if selected_op == "売上高":
-            # 売上高
-            fig_revenue = mk_graph_bar(df_target, "売上高")
-            st.plotly_chart(fig_revenue)
+            revenue_lists = st.revenue_lists
+            # ユーザーに検索コードの入力を求める
+            ticker_symbol = st.sidebar.selectbox("売上高リスト", revenue_lists)
 
         if selected_op == "EPS":
-            # EPS(１株当たり純利益)
-            fig_eps = mk_graph_bar(df_target, "EPS")
-            st.plotly_chart(fig_eps)
+            esp_lists = st.eps_lists
+            # ユーザーに検索コードの入力を求める
+            ticker_symbol = st.sidebar.selectbox("EPSリスト", esp_lists)
 
         if selected_op == "一株配当":
-            # 一株当たり配当金
-            fig_dividend = mk_graph_bar(df_target, "一株配当")
-            st.plotly_chart(fig_dividend)
-            # 配当性向
-            fig_dividend_payout_ratio = mk_graph_scatter(df_target, "配当性向")
-            st.plotly_chart(fig_dividend_payout_ratio)
-
+            dps_lists = st.dps_lists
+            # ユーザーに検索コードの入力を求める
+            ticker_symbol = st.sidebar.selectbox("一株配当リスト", dps_lists)
 
         if selected_op == "営業CF":
-            # 営業利益率
-            fig_operating_cf = mk_graph_bar(df_target, "営業CF")
-            st.plotly_chart(fig_operating_cf)
+            scf_lists = st.scf_lists
+            # ユーザーに検索コードの入力を求める
+            ticker_symbol = st.sidebar.selectbox("営業CF", scf_lists)
 
         if selected_op == "営業利益率":
-            # 営業利益率
-            fig_operating_profit_margin = mk_graph_scatter(df_target, "営業利益率")
-            st.plotly_chart(fig_operating_profit_margin)
+            opm_lists = st.opm_lists
+            # ユーザーに検索コードの入力を求める
+            ticker_symbol = st.sidebar.selectbox("営業利益率", opm_lists)
 
-        # # ROE
-        # fig_ROE = mk_graph_scatter(df_target, "ROE")
-        # st.plotly_chart(fig_ROE)
+        # ユーザーが何か入力した場合のみ処理を進める
+        if ticker_symbol:
+            try:
+                # 入力されたコードを整数に変換
+                ticker_symbol = int(ticker_symbol)
 
+                # 以前のコードを実行
+                df_stock_dividend = pd.read_pickle("stock_dividend.pkl")
+                df_profit_and_loss = pd.read_pickle("profit_and_loss.pkl")
+                df_cash_flow_statement = pd.read_pickle("cash_flow_statement.pkl")
+                df_balance_sheet = pd.read_pickle("balance_sheet.pkl")
+
+                common_lists = ['日付', 'コード', '銘柄名', '市場・商品区分', '33業種コード', '33業種区分',
+                                '17業種コード', '17業種区分', '規模コード', '規模区分', '年度']
+
+                df_marged_stock_profit = pd.merge(df_stock_dividend,
+                                                  df_profit_and_loss,
+                                                  on=common_lists, how='inner')
+                df_marged_stock_profit_cash = pd.merge(df_marged_stock_profit,
+                                                       df_cash_flow_statement,
+                                                       on=common_lists, how='inner')
+                df_marged_stock_profit_cash_balance = pd.merge(
+                    df_marged_stock_profit_cash,
+                    df_balance_sheet,
+                    on=common_lists, how='inner')
+
+                df = df_marged_stock_profit_cash_balance
+
+                df = df.replace('-', np.nan)
+                df["営業利益"] = pd.to_numeric(df["営業利益"], errors='coerce',
+                                           downcast='integer')
+                df["売上高"] = pd.to_numeric(df["売上高"], errors='coerce',
+                                          downcast='integer')
+                df["営業利益率"] = df["営業利益"] / df["売上高"] * 100
+                df_target = mk_df_target(df, ticker_symbol)
+                # st.dataframe(df_target)
+
+            except ValueError:
+                st.error("有効なコードを入力してください。")
+
+            # 各グラフの表示
+
+
+            if selected_op == "売上高":
+                # 売上高
+                fig_revenue = mk_graph_bar(df_target, "売上高")
+                st.plotly_chart(fig_revenue)
+
+            if selected_op == "EPS":
+                # EPS(１株当たり純利益)
+                fig_eps = mk_graph_bar(df_target, "EPS")
+                st.plotly_chart(fig_eps)
+
+            if selected_op == "一株配当":
+                # 一株当たり配当金
+                fig_dividend = mk_graph_bar(df_target, "一株配当")
+                st.plotly_chart(fig_dividend)
+                # 配当性向
+                fig_dividend_payout_ratio = mk_graph_scatter(df_target, "配当性向")
+                st.plotly_chart(fig_dividend_payout_ratio)
+
+
+            if selected_op == "営業CF":
+                # 営業利益率
+                # fig_operating_cf = mk_graph_bar(df_target, "営業CF")
+                fig_operating_cf = mk_graph_bars(df_target,["営業CF", "投資CF", "財務CF"])
+                st.plotly_chart(fig_operating_cf)
+
+            if selected_op == "営業利益率":
+                # 営業利益率
+                fig_operating_profit_margin = mk_graph_scatter(df_target, "営業利益率")
+                st.plotly_chart(fig_operating_profit_margin)
+
+            # # ROE
+            # fig_ROE = mk_graph_scatter(df_target, "ROE")
+            # st.plotly_chart(fig_ROE)
+    except AttributeError as e:
+        # AttributeError が発生した場合に実行されます
+        st.error("高配当のスクリーニングを実行して下さい")
+        # エラーの詳細を表示
+        # st.write(f"エラーの詳細: {e}")
+
+        # ここで代替の処理を行うか、エラーをログに記録することができます
 
 if __name__ == "__main__":
     main()
